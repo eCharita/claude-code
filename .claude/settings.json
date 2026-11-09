@@ -1,20 +1,37 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm *)",
-      "Bash(npx *)",
-      "Bash(git *)",
-      "Bash(gh *)",
-      "Bash(kill *)",
-      "Bash(lsof *)",
-      "Bash(xargs *)",
-      "Bash(curl *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git switch *)",
+      "Bash(git checkout -b *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git fetch *)",
+      "Bash(git stash list *)",
+
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh repo view *)",
+
+      "Bash(npm install *)",
+      "Bash(npm ci *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+
       "Bash(ls *)",
       "Bash(grep *)",
-      "Bash(cd *)",
       "Bash(echo *)",
-      "Skill(claude-in-chrome)",
-      "Bash(./scripts/setup-branch.sh *)"
+
+      "Bash(./scripts/setup-branch.sh *)",
+      "Skill(claude-in-chrome)"
     ],
     "deny": [
       "Bash(aws *)",
@@ -24,12 +41,21 @@
       "Bash(serverless *)",
       "Bash(npx serverless *)",
       "Bash(sls *)",
-      "Bash(npx sls *)",
+
+      "Bash(git reset --hard *)",
+      "Bash(git clean -fd *)",
       "Bash(git push * main*)",
       "Bash(git push * master*)",
       "Bash(git push *:main*)",
       "Bash(git push *:master*)",
       "Bash(git commit * --no-verify*)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(gh issue edit *)",
+      "Bash(gh issue close *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr merge *)"
     ],
     "defaultMode": "auto"
   },
