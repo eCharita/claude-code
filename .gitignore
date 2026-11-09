@@ -1,5 +1,6 @@
 # Ignore all files and directoris in root
 /*
+/.claude/settings.local.json
 
 # Allow Claude Code configruateion
 !/.claude/
