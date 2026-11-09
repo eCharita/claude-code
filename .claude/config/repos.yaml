@@ -1,0 +1,36 @@
+# Mapping of ticket labels (`service:*`) to eCharita repositories and their local folders.
+# Used by the ticket-analyzer agent (see .claude/agents/ticket-analyzer.md).
+# A label not listed here (e.g. `service: youth-center`) has no repository -> ask the developer.
+org: eCharita
+base_branch: main
+repositories:
+  - label: "service:day-care-center"
+    repo: eCharita/day-care-center
+    path: day-care-center
+  - label: "service:PersonalAssistanceLambda"
+    repo: eCharita/PersonalAssistanceLambda
+    path: PersonalAssistanceLambda
+  - label: "service:assistance"
+    repo: eCharita/assistance
+    path: assistance
+  - label: "service:aws-infrastructure"
+    repo: eCharita/aws-infrastructure
+    path: aws-infrastructure
+  - label: "service:employee-managment"
+    repo: eCharita/employee-managment
+    path: employee-managment
+  - label: "service:shell-app"
+    repo: eCharita/shell-app
+    path: shell-app
+  - label: "service:social-consulting"
+    repo: eCharita/social-consulting
+    path: social-consulting
+  - label: "service:timesheetGenerate"
+    repo: eCharita/timesheetGenerate
+    path: timesheetGenerate
+  - label: "service:presentation"
+    repo: eCharita/presentation
+    path: presentation
+  - label: "service:manager-cockpit"
+    repo: eCharita/manager-cockpit
+    path: manager-cockpit

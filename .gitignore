@@ -1,0 +1,13 @@
+# Ignore all files and directoris in root
+/*
+
+# Allow Claude Code configruateion
+!/.claude/
+!/.claude/**
+
+# Allow root documentation
+!/README.md
+!/.claudeignore
+
+# Allow Git Configuration
+!/.gitignore
