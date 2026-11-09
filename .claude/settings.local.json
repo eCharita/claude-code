@@ -1,8 +1,0 @@
-{
-  "env": {
-    "TRACE_TO_LANGSMITH": "true",
-    "CC_LANGSMITH_API_KEY": "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",
-    "CC_LANGSMITH_PROJECT": "try-local",
-    "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com"
-  }
-}
