@@ -11,4 +11,4 @@
 !/.claudeignore
 
 # Allow Git Configuration
-!/.gitignore
+!/.gitignore.claude/settings.local.json
