@@ -9,6 +9,7 @@
 - `employee-managment/`: Angular micro-frontend for employee management (module federation remote)
 - `social-consulting/`: Angular micro-frontend for social consulting (Native Federation remote `socialConsulting`, port 4203, exposes `./Routes`, mounted in `shell-app` at `/social-consulting`; blueprint = `employee-managment`). Has its own layout (toolbar + sidenav mirroring `assistance/`) in `src/app/layout/`; `shell-app` hides its global toolbar on this route (`OWN_LAYOUT_ROUTES` in `shell-app/src/app/app.component.ts`)
 - `manager-cockpit/`: Angular micro-frontend for the manager cockpit (eCharita/manager-cockpit; Native Federation remote, port 4202, exposes `./Routes`; registered in `shell-app` as `mcockpit` and mounted at `/mcockpit`)
+- `relax-and-fun/`: RelaxAndFun service (eCharita/RelaxAndFun; ticket label `service:RelaxAndFun`) — repository currently contains only a README
 - `aws-infrastructure/`: AWS infrastructure definitions (eCharita/aws-infrastructure) — STRICT RULE 1 applies, never deploy
 - `presentation/`: Product presentation of HelioCare — plain static HTML (own git repo), see [Presentation](#presentation-subproject)
 

@@ -34,3 +34,6 @@ repositories:
   - label: "service:manager-cockpit"
     repo: eCharita/manager-cockpit
     path: manager-cockpit
+  - label: "service:RelaxAndFun"
+    repo: eCharita/RelaxAndFun
+    path: relax-and-fun
