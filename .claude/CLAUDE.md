@@ -93,6 +93,10 @@ Real Claude Code subagents are defined in `.claude/agents/`:
 - `ticket-analyzer` (`.claude/agents/ticket-analyzer.md`) — reads the ticket, creates/reuses ticket-linked branches, returns technical analysis. Trigger: `/ticket-start <issue-url>`.
 - `clean-code-reviewer` (`.claude/agents/clean-code-reviewer.md`) — read-only final review of the branch diff, verdict PASSED / NEEDS_REVISION / BLOCKED. Trigger: `/clean-code-review [repo ...]`.
 
-Sequence per ticket: `/ticket-start` → implementation (`ui-agent` → `lambda-agent` → integration) → `/clean-code-review` → ticket summary comment.
+- `marko` skill (`.claude/skills/marko/SKILL.md`, adapted from github.com/julian-galluzzo/marko) — fast, terse inner-loop review in a forked context (read-only): verdict catastrophe / bad / mediocre / ok + `file:line` gripes, no fixes suggested. Trigger: `/marko [repo ...]` or addressing him ("marko?", "hey marko"). Does NOT replace `clean-code-reviewer`.
+
+Sequence per ticket: `/ticket-start` → `ui-agent` → Marko loop → `lambda-agent` → Marko loop → integration → Marko loop → `/clean-code-review` → ticket summary comment.
+
+**Marko loop** (after each implementation step, without asking the developer): run `/marko <repos of that step>`; fix every gripe that affects correctness, project rules or readability (skip pure nits); run Marko once more. At most 2 rounds — gripes still open after that are passed on to `/clean-code-review` and, if still unresolved, listed as open in the ticket comment. Include Marko's last verdict per repository in the ticket comment.
 
 Each agent must strictly respect the scope restrictions in its definition.
