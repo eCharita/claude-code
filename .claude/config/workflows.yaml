@@ -1,0 +1,67 @@
+# Workflow types the orchestrator can select (rules and meaning: .claude/docs/orchestration.md).
+# A step `implement: <layer>` runs the owner (repos.yaml) of every in-scope repository of that layer;
+# it is skipped when the ticket has no in-scope repository of that layer.
+# `integrate` runs only when both a frontend and a backend implement step ran.
+# `validate` lists the required categories (commands per stack in repos.yaml).
+# `review: marko` = Marko loop after each implement/integrate step; `clean-code-reviewer` runs last
+# when listed (every workflow except documentation_only).
+limits:
+  correction_cycles: 2   # per failing validation check, then BLOCKED / FAILED
+  marko_rounds: 2        # per checkpoint
+  final_review_rounds: 2 # clean-code-reviewer
+workflows:
+  fullstack_feature:
+    description: New feature needing UI and backend changes (UI-First with mock data)
+    steps:
+      - implement: frontend
+        mode: mock
+      - implement: backend
+      - integrate
+      - validate: [build, test, typecheck, contract]
+      - review: [marko, clean-code-reviewer]
+  frontend_feature:
+    description: New UI behaviour with no backend change (existing API or none)
+    steps:
+      - implement: frontend
+      - validate: [build, test, typecheck]
+      - review: [marko, clean-code-reviewer]
+  backend_bugfix:
+    description: Defect in a Lambda / backend service, API contract unchanged
+    steps:
+      - implement: backend
+      - validate: [build, test]
+      - review: [marko, clean-code-reviewer]
+  frontend_bugfix:
+    description: Defect in an Angular app or the presentation, API contract unchanged
+    steps:
+      - implement: frontend
+      - validate: [build, test, typecheck]
+      - review: [marko, clean-code-reviewer]
+  api_change:
+    description: New or changed endpoint / payload consumed by a frontend
+    steps:
+      - contract_analysis
+      - implement: backend
+      - implement: frontend
+        mode: real
+      - integrate
+      - validate: [build, test, typecheck, contract]
+      - review: [marko, clean-code-reviewer]
+  refactoring:
+    description: Behaviour-preserving restructuring
+    steps:
+      - implement: any
+      - validate: [build, test, typecheck]
+      - review: [marko, clean-code-reviewer]
+  infrastructure_change:
+    description: Terraform / IaC change — validated locally, never deployed
+    steps:
+      - implement: infrastructure
+      - validate: [format, build]
+      - review: [marko, clean-code-reviewer]
+  documentation_only:
+    description: README / docs / comments only, no code behaviour change
+    steps:
+      - implement: docs
+      - validate: [docs]
+      - review: []

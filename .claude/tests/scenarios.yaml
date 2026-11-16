@@ -1,0 +1,130 @@
+# Orchestration scenarios (ticket eCharita/claude-code#4 §8). Workflow classification itself is a
+# judgment of the ticket-analyzer; these fixtures fix the classification and verify everything that
+# follows deterministically from .claude/config: scope, agent selection, order, validation, limits.
+scenarios:
+  A_fullstack_feature:
+    ticket_repo: eCharita/assistance
+    labels: ["service:assistance", "service:PersonalAssistanceLambda", "enhancement"]
+    workflow: fullstack_feature
+    expect:
+      scope: [assistance, PersonalAssistanceLambda]
+      implementers: [ui-agent, lambda-agent]      # in this order (UI-First)
+      first_frontend_mode: mock
+      integrate: true
+      not_invoked: []
+  B_backend_bugfix:
+    ticket_repo: eCharita/PersonalAssistanceLambda
+    labels: ["service:PersonalAssistanceLambda", "bug"]
+    workflow: backend_bugfix
+    expect:
+      scope: [PersonalAssistanceLambda]
+      implementers: [lambda-agent]
+      integrate: false
+      not_invoked: [ui-agent]
+      validation_categories: [build, test]
+  C_frontend_bugfix:
+    ticket_repo: eCharita/day-care-center
+    labels: ["service:day-care-center", "bug"]
+    workflow: frontend_bugfix
+    expect:
+      scope: [day-care-center]
+      implementers: [ui-agent]
+      integrate: false
+      not_invoked: [lambda-agent]
+      validation_categories: [build, test, typecheck]
+      validation_resolves: {typecheck: "COVERED BY build"}
+  D_java_service_change:
+    ticket_repo: eCharita/timesheetGenerate
+    labels: ["service:timesheetGenerate"]
+    workflow: backend_bugfix
+    expect:
+      scope: [timesheetGenerate]
+      implementers: [orchestrator]
+      integrate: false
+      not_invoked: [ui-agent, lambda-agent]
+      validation_contains: ["-q test"]
+  E_api_change:
+    ticket_repo: eCharita/PersonalAssistanceLambda
+    labels: ["service:PersonalAssistanceLambda", "service:assistance"]
+    workflow: api_change
+    expect:
+      scope: [PersonalAssistanceLambda, assistance]
+      first_step: contract_analysis
+      implementers: [lambda-agent, ui-agent]      # backend first, then FE integration
+      first_frontend_mode: real
+      integrate: true
+      not_invoked: []
+      validation_resolves: {contract: "MANUAL"}
+  E2_api_change_frontend_out_of_scope:
+    ticket_repo: eCharita/PersonalAssistanceLambda
+    labels: ["service:PersonalAssistanceLambda"]
+    workflow: api_change
+    expect:
+      scope: [PersonalAssistanceLambda]
+      first_step: contract_analysis
+      implementers: [lambda-agent]
+      skipped_layers: [frontend]                  # FE consumer is reported, not edited
+      integrate: false
+      not_invoked: [ui-agent]
+  F_infrastructure_change:
+    ticket_repo: eCharita/aws-infrastructure
+    labels: ["service:aws-infrastructure"]
+    workflow: infrastructure_change
+    expect:
+      scope: [aws-infrastructure]
+      implementers: [orchestrator]
+      integrate: false
+      not_invoked: [ui-agent, lambda-agent]
+      validation_categories: [format, build]
+  H_documentation_only:
+    ticket_repo: eCharita/assistance
+    labels: ["service:assistance", "documentation"]
+    workflow: documentation_only
+    expect:
+      scope: [assistance]
+      implementers: [orchestrator]
+      integrate: false
+      not_invoked: [ui-agent, lambda-agent, marko]
+  I_refactoring_frontend:
+    ticket_repo: eCharita/shell-app
+    labels: ["service:shell-app"]
+    workflow: refactoring
+    expect:
+      scope: [shell-app]
+      implementers: [ui-agent]
+      integrate: false
+      not_invoked: [lambda-agent]
+  J_unknown_label_is_skipped:
+    ticket_repo: eCharita/assistance
+    labels: ["service:youth-center", "service:assistance"]
+    workflow: frontend_feature
+    expect:
+      scope: [assistance]
+      unknown_labels: ["service:youth-center"]
+      implementers: [ui-agent]
+      integrate: false
+      not_invoked: [lambda-agent]
+  K_no_label_falls_back_to_ticket_repo:
+    ticket_repo: eCharita/manager-cockpit
+    labels: ["bug"]
+    workflow: frontend_bugfix
+    expect:
+      scope: [manager-cockpit]
+      fallback: true
+      implementers: [ui-agent]
+      integrate: false
+      not_invoked: [lambda-agent]
+  L_no_scope_is_blocked:
+    ticket_repo: eCharita/youth-center
+    labels: ["service:youth-center"]
+    workflow: frontend_feature
+    expect:
+      status: BLOCKED
+# Scenario G (failed validation) — correction loop, limits.correction_cycles from workflows.yaml.
+# results = outcome of each validation run in order (initial run, then after each correction).
+validation_runs:
+  passes_first_time:   {results: [pass], status: PASS, corrections: 0}
+  fixed_after_one:     {results: [fail, pass], status: PASS, corrections: 1}
+  fixed_at_limit:      {results: [fail, fail, pass], status: PASS, corrections: 2}
+  still_failing:       {results: [fail, fail, fail, pass], status: FAILED, corrections: 2}
+  pre_existing_only:   {results: [pre_existing], status: PASS, corrections: 0}
