@@ -1,39 +1,114 @@
-# Mapping of ticket labels (`service:*`) to eCharita repositories and their local folders.
-# Used by the ticket-analyzer agent (see .claude/agents/ticket-analyzer.md).
-# A label not listed here (e.g. `service: youth-center`) has no repository -> ask the developer.
+# Single source of truth for HelioCare repositories:
+#   - `service:*` label -> eCharita repository -> local folder (ticket scope),
+#   - stack / layer / owner (who implements changes there),
+#   - validation commands per category.
+# Used by the ticket-analyzer agent, the orchestrator (.claude/docs/orchestration.md)
+# and the config tests (.claude/tests/). Unknown labels: see orchestration.md "Scope".
+#
+# layer: frontend | backend | infrastructure  (workflows.yaml also uses `any` and `docs`)
+# owner: an agent from .claude/agents/ or `orchestrator` (the main Claude Code session)
+# validation: <category>: <command>  — placeholders: `{path}` = absolute repository folder,
+#   `{module}` = a changed Lambda module folder, `{files}` = changed files of that kind,
+#   `{env}` = each folder under environments/ affected by the change.
+# covered: <category>: <other category> — checked as part of that other category's command.
+# unavailable: <category>: <reason> — no supported command; report it, never invent one.
+# Categories not in a stack (and not manual) count as unavailable.
 org: eCharita
 base_branch: main
+# The one list of validation categories (used by workflows.yaml and the tests).
+categories: [build, test, typecheck, lint, format, contract, docs]
+# Categories the orchestrator checks by hand for every stack; reported PASS / FAIL, never UNAVAILABLE.
+manual_checks:
+  contract: manual FE/BE contract diff (orchestration.md §4)
+  docs: referenced files, paths and commands exist and match the code
+stacks:
+  angular:
+    layer: frontend
+    owner: ui-agent
+    validation:
+      build: npm --prefix {path} run build:development
+      test: npm --prefix {path} run test -- --watch=false --browsers=ChromeHeadless
+    covered:
+      typecheck: build   # Angular AOT compilation type-checks templates and TS
+    unavailable:
+      lint: no lint script / ESLint config in the repository
+  python-lambda:
+    layer: backend
+    owner: lambda-agent
+    validation:
+      build: python3 -m py_compile {files}
+      test: python3 -m unittest discover -s {path}/{module}/tests -t {path}/{module}/tests
+    unavailable:
+      lint: no linter configured
+      typecheck: no type checker configured
+      # SAM template validation needs the `sam` CLI, which is denied (STRICT RULE 1)
+  java-maven:
+    layer: backend
+    owner: orchestrator
+    validation:
+      build: mvn -f {path}/pom.xml -q compile
+      test: mvn -f {path}/pom.xml -q test
+    unavailable:
+      lint: no static analysis plugin configured
+  terraform:
+    layer: infrastructure
+    owner: orchestrator
+    validation:
+      format: terraform fmt -check {files}
+      build: terraform -chdir={path}/environments/{env} validate
+    unavailable:
+      # validate needs an initialised environment (.terraform/); init is forbidden, so an
+      # uninitialised {env} is reported as UNAVAILABLE for build.
+      # terraform plan/apply/init touch AWS state — forbidden (STRICT RULE 1)
+  static-html:
+    layer: frontend
+    owner: orchestrator
+    validation: {}
+    unavailable:
+      build: no build step (plain static HTML)
+      # -> orchestration.md §5: a manual check is required (i18n keys in cs/en/de, page renders)
 repositories:
   - label: "service:day-care-center"
     repo: eCharita/day-care-center
     path: day-care-center
+    stack: angular
   - label: "service:PersonalAssistanceLambda"
     repo: eCharita/PersonalAssistanceLambda
     path: PersonalAssistanceLambda
+    stack: python-lambda
   - label: "service:assistance"
     repo: eCharita/assistance
     path: assistance
+    stack: angular
   - label: "service:aws-infrastructure"
     repo: eCharita/aws-infrastructure
     path: aws-infrastructure
+    stack: terraform
   - label: "service:employee-managment"
     repo: eCharita/employee-managment
     path: employee-managment
+    stack: angular
   - label: "service:shell-app"
     repo: eCharita/shell-app
     path: shell-app
+    stack: angular
   - label: "service:social-consulting"
     repo: eCharita/social-consulting
     path: social-consulting
+    stack: angular
   - label: "service:timesheetGenerate"
     repo: eCharita/timesheetGenerate
     path: timesheetGenerate
+    stack: java-maven
   - label: "service:presentation"
     repo: eCharita/presentation
     path: presentation
+    stack: static-html
   - label: "service:manager-cockpit"
     repo: eCharita/manager-cockpit
     path: manager-cockpit
+    stack: angular
   - label: "service:RelaxAndFun"
     repo: eCharita/RelaxAndFun
     path: relax-and-fun
+    stack: angular
