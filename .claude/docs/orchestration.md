@@ -11,14 +11,25 @@ Data lives in config, not here:
 
 STRICT RULES in `.claude/CLAUDE.md` always apply (no AWS deployment, no commit/push to main/master).
 
-## 1. Phases
+## 1. Workflow states
 
-`ANALYZING → PREPARING → IMPLEMENTING → VALIDATING → REVIEWING → COMPLETED`, with the terminal states
-`BLOCKED` (cannot continue safely — missing information, scope needs approval, unresolved check) and
-`FAILED` (attempted and broken, e.g. a check still fails after the correction limit).
-A failed check or a blocking review finding moves back to `IMPLEMENTING`.
-Unresolved dependency: the workflow state model belongs to ticket eCharita/claude-code#3 (still open).
-These names follow #3; this section is provisional — when #3 lands, merge it here instead of keeping two models.
+Every ticket run is in exactly one state. Allowed transitions are in `.claude/config/workflows.yaml`
+(`states`); the orchestrator never skips a state that the workflow needs and never leaves a terminal one.
+
+```
+ANALYZING → PREPARING → IMPLEMENTING → VALIDATING → REVIEWING → COMPLETED
+                             ↑______________|____________|      (failed check / review blocker)
+any non-terminal state → BLOCKED | FAILED
+```
+
+- `BLOCKED` — cannot continue safely: scope cannot be resolved (§2), critical information missing,
+  out-of-scope change without approval, unclear fix, review blocker still open after the round limit.
+- `FAILED` — attempted and broken: a check still fails after `limits.correction_cycles`.
+- Back-edges (`VALIDATING`/`REVIEWING` → `IMPLEMENTING`) are bounded by `limits` in workflows.yaml.
+- A workflow with `review: []` (`documentation_only`) still passes REVIEWING; record "no review required".
+- Report each transition in one line, `State: <FROM> → <TO> (<reason>)`, and list the visited states
+  in the summary (§7). An implementation agent's `RESULT: BLOCKED` moves the ticket to `BLOCKED`
+  unless a correction within the limits resolves it.
 
 | Phase | What happens | Who |
 |---|---|---|
@@ -34,14 +45,23 @@ the ticket scope, a decision the ticket leaves open that changes behaviour, or a
 
 ## 2. Scope
 
-- In-scope repositories = the `service:` labels mapped through `repos.yaml`. Nothing else is edited.
-- Unknown label → skip it and report it. No mapped label at all → the ticket's own repository if it is in
-  `repos.yaml` (reported); otherwise `BLOCKED`.
+The policy is `scope_policy` in `.claude/config/repos.yaml`, implemented once in
+`.claude/lib/repo_scope.py`. The analyzer runs `python3 .claude/lib/repo_scope.py <owner/repo> <label>...`
+and uses its JSON result — nobody maps labels by hand.
+
+- `status: READY` → `scope` is the complete set of repositories the ticket may change. Nothing else is edited.
+- Unknown `service:` label → `BLOCKED` in ANALYZING, before any branch is created. Never guess a repository
+  from a name. Continue only after the developer adds the mapping / removes the label, or explicitly approves
+  working on the mapped repositories only (`--approved-without-unknown`; record the approval in the summary).
+- No `service:` label at all → the ticket's own repository if it is in `repos.yaml` (`fallback: true`,
+  reported); otherwise `BLOCKED`.
 - A needed change in an out-of-scope repository (e.g. a second frontend consuming a changed endpoint) →
-  do not touch it — stop and ask (CLAUDE.md, Ticket Workflow step 2). In unattended runs that part ends
-  as BLOCKED and is reported as an open follow-up; the in-scope work continues.
+  do not touch it — ask first. In unattended runs that part ends as BLOCKED and is reported as an open
+  follow-up; the in-scope work continues.
 - Every handoff lists `allowed_repositories`; an agent never edits outside that list. Reading other
   repositories (e.g. FE types from the Lambda agent) is allowed.
+- Commits and pushes to `main`/`master` are blocked by `.claude/hooks/git_guard.py` in every repository
+  (`.claude/docs/git-safety.md`).
 
 ## 3. Workflow selection
 
@@ -155,6 +175,7 @@ language, one new comment per finished piece of work. Only facts from this sessi
 ## Implementation Summary
 ### Ticket            #<id> — <title>
 ### Workflow          <type> — <one-line rationale>; skipped steps: <...>
+### States            <visited states, e.g. ANALYZING → … → VALIDATING → IMPLEMENTING → … → COMPLETED>
 ### Agents executed   <agent: what it did>  (and agents deliberately not run)
 ### Repositories      <repo>: <branch> — <changes>; stashes: <...>
 ### Validation        <repo> <category>: PASS | FAIL | UNAVAILABLE (<reason>) | PRE-EXISTING | NOT RUN

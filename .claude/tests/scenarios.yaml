@@ -1,4 +1,4 @@
-# Orchestration scenarios (ticket eCharita/claude-code#4 §8). Workflow classification itself is a
+# Orchestration scenarios (tickets eCharita/claude-code#4 §8 and #3 §6). Workflow classification itself is a
 # judgment of the ticket-analyzer; these fixtures fix the classification and verify everything that
 # follows deterministically from .claude/config: scope, agent selection, order, validation, limits.
 scenarios:
@@ -94,13 +94,18 @@ scenarios:
       implementers: [ui-agent]
       integrate: false
       not_invoked: [lambda-agent]
-  J_unknown_label_is_skipped:
+  J_unknown_label_blocks:            # scope_policy.unknown_service_label: block
     ticket_repo: eCharita/assistance
     labels: ["service:youth-center", "service:assistance"]
     workflow: frontend_feature
     expect:
+      status: BLOCKED
+  J2_label_case_and_spaces:
+    ticket_repo: eCharita/assistance
+    labels: ["Service: Assistance"]
+    workflow: frontend_bugfix
+    expect:
       scope: [assistance]
-      unknown_labels: ["service:youth-center"]
       implementers: [ui-agent]
       integrate: false
       not_invoked: [lambda-agent]

@@ -8,12 +8,15 @@ the orchestrator follows the docs; this file keeps the docs and the config consi
 """
 import os
 import re
+import sys
 import unittest
 
 import yaml
 
 CLAUDE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORKSPACE = os.path.dirname(CLAUDE_DIR)
+sys.path.insert(0, os.path.join(CLAUDE_DIR, "lib"))
+import repo_scope  # noqa: E402  — the runtime implementation of scope_policy
 
 
 def load(rel):
@@ -33,18 +36,6 @@ AGENTS = {f[:-3] for f in os.listdir(os.path.join(CLAUDE_DIR, "agents")) if f.en
 VALIDATION_CATEGORIES = set(REPOS["categories"])
 # STRICT RULE 1: nothing in a validation command may deploy or touch AWS state.
 FORBIDDEN = re.compile(r"\b(aws|cdk|sam|serverless|sls|deploy|apply|destroy|plan|init|import)\b")
-
-
-def resolve_scope(ticket_repo, labels):
-    """Returns (repo entries in scope, unknown service labels, fallback used)."""
-    by_label = {r["label"].replace(" ", ""): r for r in REPOS["repositories"]}
-    service_labels = [l for l in labels if l.replace(" ", "").startswith("service:")]
-    scope = [by_label[l.replace(" ", "")] for l in service_labels if l.replace(" ", "") in by_label]
-    unknown = [l for l in service_labels if l.replace(" ", "") not in by_label]
-    if scope:
-        return scope, unknown, False
-    own = [r for r in REPOS["repositories"] if r["repo"] == ticket_repo]
-    return own, unknown, bool(own)
 
 
 def layer_of(repo):
@@ -67,10 +58,12 @@ def resolve_check(stack, category):
 
 
 def plan(ticket_repo, labels, workflow_type):
-    scope, unknown, fallback = resolve_scope(ticket_repo, labels)
-    result = {"scope": [r["path"] for r in scope], "unknown_labels": unknown, "fallback": fallback,
-              "steps": [], "skipped_layers": [], "validation": {}, "reviewers": []}
-    if not scope:
+    resolved = repo_scope.resolve_scope(ticket_repo, labels, REPOS["repositories"])
+    scope = resolved["scope"]
+    result = {"scope": [r["path"] for r in scope], "unknown_labels": resolved["unknown_labels"],
+              "fallback": resolved["fallback"], "steps": [], "skipped_layers": [], "validation": {},
+              "reviewers": []}
+    if resolved["status"] == "BLOCKED":
         result["status"] = "BLOCKED"
         return result
     result["status"] = "READY"
@@ -208,8 +201,9 @@ class ConfigConsistency(unittest.TestCase):
         for doc in ("CLAUDE.md", "docs/orchestration.md", "skills/ticket-start/SKILL.md",
                     "agents/ticket-analyzer.md", "agents/ui-agent.md", "agents/lambda-agent.md",
                     "agents/clean-code-reviewer.md", "docs/agent-handoff.md",
-                    "skills/clean-code-review/SKILL.md", "skills/marko/SKILL.md"):
-            for ref in re.findall(r"`\.claude/([\w./-]+\.(?:md|yaml))", read(doc)):
+                    "skills/clean-code-review/SKILL.md", "skills/marko/SKILL.md",
+                    "docs/git-safety.md", "docs/langsmith.md"):
+            for ref in re.findall(r"`(?:python3 )?\.claude/([\w./-]+\.(?:md|yaml|py))", read(doc)):
                 with self.subTest(doc=doc, ref=ref):
                     self.assertTrue(os.path.isfile(os.path.join(CLAUDE_DIR, ref)), ref)
 
@@ -225,6 +219,102 @@ class ConfigConsistency(unittest.TestCase):
             if os.path.isdir(path):
                 with self.subTest(repo=repo["path"]):
                     self.assertTrue(os.path.exists(os.path.join(path, markers[repo["stack"]])))
+
+
+class ScopePolicy(unittest.TestCase):
+    def test_runtime_parser_matches_yaml(self):
+        parsed = repo_scope.load_repositories()
+        expected = [{k: str(v) for k, v in r.items()} for r in REPOS["repositories"]]
+        self.assertEqual(parsed, expected)
+
+    def test_policy_in_config_is_the_implemented_one(self):
+        self.assertEqual(REPOS["scope_policy"], repo_scope.IMPLEMENTED_POLICY)
+
+    def test_labels_match_case_and_whitespace_insensitively(self):
+        result = repo_scope.resolve_scope("eCharita/x", ["Service: Assistance", "service:assistance"])
+        self.assertEqual(([r["path"] for r in result["scope"]], result["status"]), (["assistance"], "READY"))
+
+    def test_duplicate_labels_are_reported_once(self):
+        result = repo_scope.resolve_scope("eCharita/x", ["Service: Youth", "service:youth"])
+        self.assertEqual(result["unknown_labels"], ["Service: Youth"])
+
+    def test_explicit_approval_continues_with_mapped_repositories_only(self):
+        labels = ["service:assistance", "service:youth-center"]
+        result = repo_scope.resolve_scope("eCharita/assistance", labels, approved_without_unknown=True)
+        self.assertEqual((result["status"], result["approved"]), ("READY", True))
+        self.assertEqual([r["path"] for r in result["scope"]], ["assistance"])
+        only_unknown = repo_scope.resolve_scope("eCharita/x", ["service:youth"], approved_without_unknown=True)
+        self.assertEqual(only_unknown["status"], "BLOCKED")
+
+    def test_unknown_label_never_expands_scope(self):
+        result = repo_scope.resolve_scope("eCharita/assistance", ["service:assistance", "service:youth-center"])
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertNotIn("youth-center", [r["path"] for r in result["scope"]])
+
+    def test_agents_and_skills_use_the_resolver(self):
+        for doc in ("agents/ticket-analyzer.md", "CLAUDE.md", "docs/orchestration.md",
+                    "skills/ticket-start/SKILL.md"):
+            with self.subTest(doc=doc):
+                self.assertIn("repo_scope.py", read(doc))
+        self.assertNotIn("skip it, continue with the mapped ones", read("agents/ticket-analyzer.md"))
+
+
+class StateModel(unittest.TestCase):
+    STATES = {"ANALYZING", "PREPARING", "IMPLEMENTING", "VALIDATING", "REVIEWING", "BLOCKED", "COMPLETED", "FAILED"}
+
+    def setUp(self):
+        self.model = WORKFLOWS["states"]
+        self.edges = self.model["transitions"]
+
+    def test_states_are_the_required_ones(self):
+        self.assertEqual(set(self.edges), self.STATES)
+        for targets in self.edges.values():
+            self.assertTrue(set(targets) <= self.STATES)
+
+    def test_terminal_states_have_no_exit(self):
+        self.assertEqual(set(self.model["terminal"]), {"COMPLETED", "BLOCKED", "FAILED"})
+        for state in self.model["terminal"]:
+            self.assertEqual(self.edges[state], [])
+
+    def test_every_state_can_reach_completed_or_stop(self):
+        for start in set(self.edges) - set(self.model["terminal"]):
+            seen, todo = set(), [start]
+            while todo:
+                state = todo.pop()
+                if state not in seen:
+                    seen.add(state)
+                    todo.extend(self.edges[state])
+            with self.subTest(state=start):
+                self.assertIn("COMPLETED", seen)
+                self.assertIn("BLOCKED", seen)
+
+    def test_failed_validation_returns_to_implementing(self):
+        self.assertIn("IMPLEMENTING", self.edges["VALIDATING"])
+        self.assertIn("IMPLEMENTING", self.edges["REVIEWING"])
+        self.assertIn("FAILED", self.edges["VALIDATING"])
+
+    def test_completed_only_after_review(self):
+        sources = [s for s, targets in self.edges.items() if "COMPLETED" in targets]
+        self.assertEqual(sources, ["REVIEWING"])
+
+    def test_states_documented(self):
+        text = read("docs/orchestration.md")
+        for state in self.STATES:
+            self.assertIn(state, text)
+
+    def test_validation_loop_states(self):
+        """Scenario E: fail -> IMPLEMENTING -> VALIDATING ... bounded, then FAILED."""
+        limit = WORKFLOWS["limits"]["correction_cycles"]
+        trace, state = ["VALIDATING"], "VALIDATING"
+        status, corrections = run_validation(["fail"] * (limit + 1), limit)
+        for _ in range(corrections):
+            for nxt in ("IMPLEMENTING", "VALIDATING"):
+                self.assertIn(nxt, self.edges[state])
+                state = nxt
+                trace.append(state)
+        self.assertEqual(status, "FAILED")
+        self.assertIn(status, self.edges[state])
+        self.assertEqual(trace.count("IMPLEMENTING"), limit)
 
 
 class Scenarios(unittest.TestCase):
