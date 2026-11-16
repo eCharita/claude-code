@@ -2,8 +2,8 @@
 #   - `service:*` label -> eCharita repository -> local folder (ticket scope),
 #   - stack / layer / owner (who implements changes there),
 #   - validation commands per category.
-# Used by the ticket-analyzer agent, the orchestrator (.claude/docs/orchestration.md)
-# and the config tests (.claude/tests/). Unknown labels: see orchestration.md "Scope".
+# Used by the ticket-analyzer agent, the orchestrator (.claude/docs/orchestration.md),
+# the LangSmith hook and the config tests (.claude/tests/).
 #
 # layer: frontend | backend | infrastructure  (workflows.yaml also uses `any` and `docs`)
 # owner: an agent from .claude/agents/ or `orchestrator` (the main Claude Code session)
@@ -67,6 +67,20 @@ stacks:
     unavailable:
       build: no build step (plain static HTML)
       # -> orchestration.md §5: a manual check is required (i18n keys in cs/en/de, page renders)
+# Ticket scope policy — the authoritative rule set. Implemented once in .claude/lib/repo_scope.py
+# (`python3 .claude/lib/repo_scope.py <owner/repo> <label>...`); agents and skills use that, never
+# their own mapping. Labels match case- and whitespace-insensitively ("service: X" == "service:x").
+scope_policy:
+  # A service: label not listed below -> the whole ticket is BLOCKED in ANALYZING, before any branch
+  # is created. Never guess a repository from a folder or repo name. To continue: add the mapping here,
+  # remove the label, or the developer explicitly approves working on the mapped repositories only.
+  unknown_service_label: block
+  # No service: label at all -> the ticket's own repository, only if it is listed below (reported);
+  # otherwise BLOCKED.
+  no_service_label: ticket_repository
+  # A change needed in a repository outside the resolved scope -> explicit developer approval first;
+  # in an unattended run that part ends BLOCKED and the in-scope work continues.
+  outside_scope_change: ask
 repositories:
   - label: "service:day-care-center"
     repo: eCharita/day-care-center

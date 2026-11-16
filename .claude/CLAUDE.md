@@ -16,7 +16,7 @@
 ## STRICT RULES (NON-NEGOTIABLE)
 1. **NO AWS DEPLOYMENT**: Never execute any AWS CLI, CDK, Serverless Framework, SAM, or deployment scripts. Deployment to AWS is 
 handled strictly by the developer manually.
-2. **NO COMMITS OR PUSHES TO MAIN/MASTER**: 
+2. **NO COMMITS OR PUSHES TO MAIN/MASTER** (enforced for Claude Code sessions started in the HelioCare root, in every repository they touch, by `.claude/hooks/git_guard.py`; remote protection via GitHub rulesets: `.claude/docs/git-safety.md`): 
    - Never commit directly to `main` or `master` branches in any repository.
    - Always check the current git branch before committing.
    - If work needs to be saved, create or use the ticket branch (see [Ticket Workflow](#ticket-workflow-before-any-coding)); only for work without a ticket use `feature/...`.
@@ -30,7 +30,7 @@ Every task starts from a GitHub ticket URL (e.g. `https://github.com/eCharita/as
    If the pasted text and the ticket differ, the ticket wins; mention the difference.
 
 2. **Determine the affected repositories from the labels starting with `service:`** (e.g. `service: assistance` → `assistance/`). Each `service:` label = one repository from [Project Structure](#project-structure). The repository in which the ticket lives is NOT automatically in scope — only the `service:` labels decide.
-   - A label that cannot be matched to a repository is skipped (and reported); if no label matches at all, the repository the ticket lives in is used if it is in `.claude/config/repos.yaml` (and reported), otherwise the ticket is BLOCKED. Do not stop to ask.
+   - The mapping and its policy live in `.claude/config/repos.yaml` (`scope_policy`) and are applied only by `python3 .claude/lib/repo_scope.py <owner/repo> <labels...>`. An unknown `service:` label → BLOCKED before any branch (continue only after the developer approves or the mapping is added); no `service:` label → the ticket's own repository if it is mapped, otherwise BLOCKED.
    - If the implementation turns out to need a change in a repository that is NOT listed in the `service:` labels, **stop and ask before touching it** (do not create a branch or edit files there).
 
 3. **Create a branch linked to the ticket in every affected repository**, so that the remote branch shows up in the ticket's *Development* section:
@@ -56,6 +56,10 @@ Every task starts from a GitHub ticket URL (e.g. `https://github.com/eCharita/as
 The main session is the orchestrator and runs **only the agents the ticket needs**. Authoritative rules: `.claude/docs/orchestration.md` (phases, scope, workflow selection, ownership, integration, validation, reviews, summary). Data: `.claude/config/workflows.yaml` (workflow types + steps + retry limits) and `.claude/config/repos.yaml` (label → repo → stack, owner, validation commands). Handoff/result format for agents: `.claude/docs/agent-handoff.md`.
 
 After changing anything in `.claude/config`, `.claude/docs`, agents or skills, run the config tests from the HelioCare root (needs PyYAML): `python3 -m unittest discover -s .claude/tests -t .claude/tests` (consistency checks + orchestration scenarios in `.claude/tests/scenarios.yaml`).
+
+Workflow states (ANALYZING → PREPARING → IMPLEMENTING → VALIDATING → REVIEWING → COMPLETED, or BLOCKED / FAILED) and their transitions: orchestration.md §1, `states` in workflows.yaml.
+
+LangSmith tracing gets the session's ticket as metadata via `.claude/hooks/ticket_langsmith.py` (per session, never the shared `langsmith.json`): `.claude/docs/langsmith.md`.
 
 Workflow types: `fullstack_feature`, `frontend_feature`, `backend_bugfix`, `frontend_bugfix`, `api_change`, `refactoring`, `infrastructure_change`, `documentation_only`.
 

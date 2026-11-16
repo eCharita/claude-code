@@ -19,10 +19,11 @@ Follow the rules in `.claude/CLAUDE.md` (Ticket Workflow, STRICT RULES). The lab
    `gh issue view <id> --repo eCharita/<ticket-repo> --json number,title,body,labels,comments`
    If the caller passed text that differs from the ticket, the ticket wins — report the difference.
 
-2. **Identify target repositories** from the labels starting with `service:` using `.claude/config/repos.yaml`. Only the labels decide — the repo the ticket lives in is not automatically in scope.
-   Decide on your own, do not stop to ask:
-   - A label not in the map (e.g. `service: youth-center`) → skip it, continue with the mapped ones, mention it under "Open questions".
-   - No mapped `service:` label at all → use the repository the ticket lives in (if it is in the map) and state this decision clearly in the report. Only if even that is impossible, create no branches and report why.
+2. **Resolve the scope** — never map labels by hand. Run (one Bash call, every label as its own quoted argument):
+   `python3 .claude/lib/repo_scope.py eCharita/<ticket-repo> "<label 1>" "<label 2>" ...`
+   It applies `scope_policy` from `.claude/config/repos.yaml` and returns JSON `{status, scope, unknown_labels, fallback, reason}`.
+   - `status: READY` → `scope` is the complete list of affected repositories (`fallback: true` = no `service:` label, the ticket's own repo is used — state this in the report).
+   - `status: BLOCKED` (unknown `service:` label, or no label and the ticket repo is unmapped) → create no branches, set `Status: BLOCKED` with the `reason`, list `unknown_labels` under "Open questions". Do not ask and do not guess — the orchestrator gets the developer's approval. Only when the prompt states that the developer explicitly approved continuing without the unknown labels, re-run the command with `--approved-without-unknown` as the first argument, proceed with the returned `scope` and write the `reason` into the report.
 
 3. **Branch name**: `<ticket-id>-<slugified-ticket-title>` (GitHub "Create a branch" format, e.g. `912-filtrovani-podle-data`): lowercase, diacritics removed, non-alphanumerics → `-`, collapse repeated `-`, keep it reasonably short. Same name in all affected repos.
 

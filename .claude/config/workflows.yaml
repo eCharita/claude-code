@@ -5,6 +5,20 @@
 # `validate` lists the required categories (commands per stack in repos.yaml).
 # `review: marko` = Marko loop after each implement/integrate step; `clean-code-reviewer` runs last
 # when listed (every workflow except documentation_only).
+# Workflow state model (meaning and reporting: .claude/docs/orchestration.md §1).
+# `transitions` lists every allowed next state; terminal states have none.
+states:
+  initial: ANALYZING
+  terminal: [COMPLETED, BLOCKED, FAILED]
+  transitions:
+    ANALYZING: [PREPARING, BLOCKED]            # BLOCKED: scope (repo_scope.py) or critical info missing
+    PREPARING: [IMPLEMENTING, BLOCKED]         # BLOCKED: branch cannot be created / reused safely
+    IMPLEMENTING: [VALIDATING, BLOCKED, FAILED]
+    VALIDATING: [REVIEWING, IMPLEMENTING, BLOCKED, FAILED]  # failed check -> IMPLEMENTING (correction_cycles)
+    REVIEWING: [COMPLETED, IMPLEMENTING, BLOCKED]           # blocker -> IMPLEMENTING (final_review_rounds)
+    COMPLETED: []
+    BLOCKED: []
+    FAILED: []
 limits:
   correction_cycles: 2   # per failing validation check, then BLOCKED / FAILED
   marko_rounds: 2        # per checkpoint

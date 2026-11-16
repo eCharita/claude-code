@@ -12,24 +12,20 @@
       "Bash(git commit *)",
       "Bash(git fetch *)",
       "Bash(git stash list *)",
-
       "Bash(gh issue view *)",
       "Bash(gh issue list *)",
       "Bash(gh pr view *)",
       "Bash(gh pr list *)",
       "Bash(gh repo view *)",
-
       "Bash(npm install *)",
       "Bash(npm ci *)",
       "Bash(npm run *)",
       "Bash(npm test *)",
       "Bash(npx tsc *)",
       "Bash(npx eslint *)",
-
       "Bash(ls *)",
       "Bash(grep *)",
       "Bash(echo *)",
-
       "Bash(./scripts/setup-branch.sh *)",
       "Skill(claude-in-chrome)"
     ],
@@ -41,7 +37,6 @@
       "Bash(serverless *)",
       "Bash(npx serverless *)",
       "Bash(sls *)",
-
       "Bash(git reset --hard *)",
       "Bash(git clean -fd *)",
       "Bash(git push * main*)",
@@ -66,7 +61,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-push-main.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/git_guard.py\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket_langsmith.py\"",
+            "timeout": 15
           }
         ]
       }
@@ -76,8 +80,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket-langsmith.py\"",
-            "timeout": 15
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket_langsmith.py\"",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket_langsmith.py\"",
+            "timeout": 35,
+            "async": true
           }
         ]
       }
@@ -87,8 +103,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket-langsmith.py\"",
-            "timeout": 15
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket_langsmith.py\"",
+            "timeout": 125
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket_langsmith.py\"",
+            "timeout": 35
           }
         ]
       }
@@ -98,8 +125,32 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket-langsmith.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket_langsmith.py\"",
+            "timeout": 65,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket_langsmith.py\"",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket_langsmith.py\"",
+            "timeout": 35,
+            "async": true
           }
         ]
       }
@@ -109,11 +160,14 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket-langsmith.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/ticket_langsmith.py\"",
             "timeout": 15
           }
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "langsmith-tracing@langsmith-claude-code-plugins": false
   }
 }
